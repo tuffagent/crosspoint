@@ -18,13 +18,27 @@ pub struct RecordPurchase<'info> {
     )]
     pub merchant: Account<'info, Merchant>,
 
+    /// CHECK: identifies which customer this purchase credits — never a signer here (the
+    /// merchant calls this alone), but the constraints below bind customer_stats and
+    /// customer_points_account to this exact pubkey so neither can be swapped for someone else's.
+    pub customer: UncheckedAccount<'info>,
+
     #[account(mut, address = merchant.points_mint)]
     pub points_mint: InterfaceAccount<'info, Mint>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = customer_stats.customer == customer.key() @ CrossPointError::InvalidCustomerStats,
+        constraint = customer_stats.merchant == merchant.key() @ CrossPointError::InvalidCustomerStats
+    )]
     pub customer_stats: Account<'info, CustomerStats>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        associated_token::mint = points_mint,
+        associated_token::authority = customer,
+        associated_token::token_program = token_program
+    )]
     pub customer_points_account: InterfaceAccount<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token2022>,

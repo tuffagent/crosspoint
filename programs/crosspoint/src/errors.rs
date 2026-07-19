@@ -26,4 +26,6 @@ pub enum CrossPointError {
     AchievementNotEligible,
     #[msg("Arithmetic overflow")]
     MathOverflow,
+    #[msg("The provided customer stats account does not belong to this customer and merchant")]
+    InvalidCustomerStats,
 }
