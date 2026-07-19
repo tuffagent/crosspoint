@@ -23,4 +23,8 @@ pub mod crosspoint {
     pub fn enroll_customer(ctx: Context<EnrollCustomer>) -> Result<()> {
         instructions::enroll_customer::handler(ctx)
     }
+
+    pub fn record_purchase(ctx: Context<RecordPurchase>, amount: u64) -> Result<()> {
+        instructions::record_purchase::handler(ctx, amount)
+    }
 }
