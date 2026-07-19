@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 pub mod constants;
 pub mod errors;
 pub mod state;
+pub mod math;
 
 use errors::CrossPointError;
 
