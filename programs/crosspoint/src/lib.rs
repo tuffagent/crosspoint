@@ -4,6 +4,7 @@ pub mod constants;
 pub mod errors;
 pub mod state;
 pub mod math;
+pub mod token_2022_helpers;
 
 use errors::CrossPointError;
 
