@@ -19,4 +19,8 @@ pub mod crosspoint {
     pub fn register_merchant(ctx: Context<RegisterMerchant>, name: String, symbol: String, uri: String) -> Result<()> {
         instructions::register_merchant::handler(ctx, name, symbol, uri)
     }
+
+    pub fn enroll_customer(ctx: Context<EnrollCustomer>) -> Result<()> {
+        instructions::enroll_customer::handler(ctx)
+    }
 }
