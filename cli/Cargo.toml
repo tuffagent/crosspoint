@@ -8,10 +8,15 @@ name = "crosspoint-cli"
 path = "src/main.rs"
 
 [dependencies]
-anchor-client = { version = "0.30.1", features = ["async"] }
+# No "async" feature here: that swaps every RequestBuilder::send() call over to
+# anchor-client's nonblocking API (returning a Future rather than a Result), which the
+# brief's run_demo (and main) are written as plain synchronous functions against, with
+# no async runtime in scope. Blocking send() matches the brief's ".send()?" call sites.
+anchor-client = "0.30.1"
 anchor-lang = "0.30.1"
 clap = { version = "4", features = ["derive"] }
 solana-sdk = "1.18"
 spl-token-2022 = { version = "3", features = ["no-entrypoint"] }
 spl-associated-token-account = "3"
 anyhow = "1"
+crosspoint = { path = "../programs/crosspoint", features = ["no-entrypoint", "cpi"] }
