@@ -18,10 +18,11 @@ pub fn run_demo(cluster: Cluster, payer: Rc<Keypair>) -> Result<()> {
     let mint_b = Keypair::new();
 
     for kp in [&merchant_a_authority, &merchant_b_authority, &customer] {
+        // confirm_transaction_with_spinner paces its own polling, unlike a bare
+        // confirm_transaction loop, which would hammer a public Devnet RPC endpoint.
+        let blockhash = rpc.get_latest_blockhash()?;
         let sig = rpc.request_airdrop(&kp.pubkey(), 2_000_000_000)?;
-        loop {
-            if rpc.confirm_transaction(&sig)? { break; }
-        }
+        rpc.confirm_transaction_with_spinner(&sig, &blockhash, CommitmentConfig::confirmed())?;
     }
 
     println!("Registering merchant A...");
