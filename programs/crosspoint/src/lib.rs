@@ -24,6 +24,10 @@ pub mod crosspoint {
         instructions::enroll_customer::handler(ctx)
     }
 
+    pub fn propose_lane(ctx: Context<ProposeLane>, rate_a_to_b: u64, rate_b_to_a: u64) -> Result<()> {
+        instructions::propose_lane::handler(ctx, rate_a_to_b, rate_b_to_a)
+    }
+
     pub fn record_purchase(ctx: Context<RecordPurchase>, amount: u64) -> Result<()> {
         instructions::record_purchase::handler(ctx, amount)
     }
