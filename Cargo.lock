@@ -1275,6 +1275,7 @@ dependencies = [
  "anchor-lang",
  "anyhow",
  "clap 4.6.2",
+ "crosspoint",
  "solana-sdk",
  "spl-associated-token-account 3.0.4",
  "spl-token-2022 3.0.5",
