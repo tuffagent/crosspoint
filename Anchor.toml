@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-crosspoint = "AEJcxEcWkuwo5gu6wPHkJZd4ohbUJ9bR5esFVCQApH4e"
+crosspoint = "B2V3qSDVknbsfLL1ZGfcRxjQqnvUNRppF76X1YXEPNLF"
 
 [programs.devnet]
-crosspoint = "AEJcxEcWkuwo5gu6wPHkJZd4ohbUJ9bR5esFVCQApH4e"
+crosspoint = "B2V3qSDVknbsfLL1ZGfcRxjQqnvUNRppF76X1YXEPNLF"
 
 [registry]
 url = "https://api.apr.dev"

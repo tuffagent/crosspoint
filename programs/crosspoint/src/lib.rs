@@ -9,7 +9,7 @@ pub mod token_2022_helpers;
 
 use instructions::*;
 
-declare_id!("AEJcxEcWkuwo5gu6wPHkJZd4ohbUJ9bR5esFVCQApH4e");
+declare_id!("B2V3qSDVknbsfLL1ZGfcRxjQqnvUNRppF76X1YXEPNLF");
 
 // CrossPoint: cross-merchant loyalty points on Token-2022.
 #[program]
