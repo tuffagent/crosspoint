@@ -32,9 +32,9 @@ fn lane_pda(program_id: Pubkey, lo: Pubkey, hi: Pubkey) -> Pubkey {
     Pubkey::find_program_address(&[b"lane", lo.as_ref(), hi.as_ref()], &program_id).0
 }
 
-fn propose(svm: &mut litesvm::LiteSVM, program_id: Pubkey, auth_lo: &Keypair, m_lo: Pubkey, m_hi: Pubkey, lane: Pubkey, rate: u64) {
+fn propose(svm: &mut litesvm::LiteSVM, program_id: Pubkey, auth_lo: &Keypair, m_lo: Pubkey, m_hi: Pubkey, lane: Pubkey, rate_lo_to_hi: u64, rate_hi_to_lo: u64) {
     let accounts = crosspoint::accounts::ProposeLane { authority: auth_lo.pubkey(), merchant_a: m_lo, merchant_b: m_hi, lane, system_program: system_program::id() }.to_account_metas(None);
-    let data = crosspoint::instruction::ProposeLane { rate_a_to_b: rate, rate_b_to_a: rate }.data();
+    let data = crosspoint::instruction::ProposeLane { rate_a_to_b: rate_lo_to_hi, rate_b_to_a: rate_hi_to_lo }.data();
     let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&auth_lo.pubkey()), &[auth_lo], svm.latest_blockhash());
     svm.send_transaction(tx).expect("propose_lane must succeed");
 }
@@ -70,11 +70,11 @@ fn purchase(svm: &mut litesvm::LiteSVM, program_id: Pubkey, authority: &Keypair,
 }
 
 #[test]
-fn swap_points_burns_a_and_mints_b_at_rate() {
+fn swap_points_burns_from_and_mints_to_at_rate() {
     let (mut svm, program_id) = setup();
     let (auth_lo, m_lo, mint_lo, auth_hi, m_hi, mint_hi) = sorted_pair(&mut svm, program_id);
     let lane = lane_pda(program_id, m_lo, m_hi);
-    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000); // 1 lo-point = 2 hi-points
+    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000, 500_000); // 1 lo-point = 2 hi-points
     accept(&mut svm, program_id, &auth_hi, m_lo, m_hi, lane);
 
     let customer = new_funded_keypair(&mut svm);
@@ -83,10 +83,10 @@ fn swap_points_burns_a_and_mints_b_at_rate() {
     purchase(&mut svm, program_id, &auth_lo, customer.pubkey(), m_lo, mint_lo, stats_lo, ata_lo, 100);
 
     let accounts = crosspoint::accounts::SwapPoints {
-        customer: customer.pubkey(), merchant_a: m_lo, merchant_b: m_hi, lane,
-        points_mint_a: mint_lo, points_mint_b: mint_hi,
-        customer_points_account_a: ata_lo, customer_points_account_b: ata_hi,
-        customer_stats_b: stats_hi, token_program: spl_token_2022::id(),
+        customer: customer.pubkey(), merchant_from: m_lo, merchant_to: m_hi, lane,
+        points_mint_from: mint_lo, points_mint_to: mint_hi,
+        customer_points_account_from: ata_lo, customer_points_account_to: ata_hi,
+        customer_stats_to: stats_hi, token_program: spl_token_2022::id(),
     }.to_account_metas(None);
     let data = crosspoint::instruction::SwapPoints { amount: 50 }.data();
     let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
@@ -95,11 +95,40 @@ fn swap_points_burns_a_and_mints_b_at_rate() {
 }
 
 #[test]
+fn swap_points_works_in_reverse_direction_at_its_own_rate() {
+    // The lane stores independent rates for each direction (rate_a_to_b vs rate_b_to_a).
+    // A customer swapping hi -> lo must use rate_b_to_a, not rate_a_to_b, and the lane
+    // PDA must still resolve correctly even though merchant_from is now the
+    // higher-sorted merchant.
+    let (mut svm, program_id) = setup();
+    let (auth_lo, m_lo, mint_lo, auth_hi, m_hi, mint_hi) = sorted_pair(&mut svm, program_id);
+    let lane = lane_pda(program_id, m_lo, m_hi);
+    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000, 250_000); // hi -> lo at 0.25x
+    accept(&mut svm, program_id, &auth_hi, m_lo, m_hi, lane);
+
+    let customer = new_funded_keypair(&mut svm);
+    let (stats_lo, ata_lo) = enroll(&mut svm, program_id, &customer, m_lo, mint_lo);
+    let (stats_hi, ata_hi) = enroll(&mut svm, program_id, &customer, m_hi, mint_hi);
+    purchase(&mut svm, program_id, &auth_hi, customer.pubkey(), m_hi, mint_hi, stats_hi, ata_hi, 100);
+
+    let accounts = crosspoint::accounts::SwapPoints {
+        customer: customer.pubkey(), merchant_from: m_hi, merchant_to: m_lo, lane,
+        points_mint_from: mint_hi, points_mint_to: mint_lo,
+        customer_points_account_from: ata_hi, customer_points_account_to: ata_lo,
+        customer_stats_to: stats_lo, token_program: spl_token_2022::id(),
+    }.to_account_metas(None);
+    let data = crosspoint::instruction::SwapPoints { amount: 40 }.data();
+    let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
+    assert!(svm.send_transaction(tx).is_ok(), "swap_points must work in the hi -> lo direction too");
+    // 40 hi-points at rate 250_000 (0.25x) => 10 lo-points minted.
+}
+
+#[test]
 fn swap_points_rejects_inactive_lane() {
     let (mut svm, program_id) = setup();
     let (auth_lo, m_lo, mint_lo, _auth_hi, m_hi, mint_hi) = sorted_pair(&mut svm, program_id);
     let lane = lane_pda(program_id, m_lo, m_hi);
-    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000);
+    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000, 500_000);
     // Deliberately skip accept() so the lane stays inactive.
 
     let customer = new_funded_keypair(&mut svm);
@@ -108,10 +137,10 @@ fn swap_points_rejects_inactive_lane() {
     purchase(&mut svm, program_id, &auth_lo, customer.pubkey(), m_lo, mint_lo, stats_lo, ata_lo, 100);
 
     let accounts = crosspoint::accounts::SwapPoints {
-        customer: customer.pubkey(), merchant_a: m_lo, merchant_b: m_hi, lane,
-        points_mint_a: mint_lo, points_mint_b: mint_hi,
-        customer_points_account_a: ata_lo, customer_points_account_b: ata_hi,
-        customer_stats_b: stats_hi, token_program: spl_token_2022::id(),
+        customer: customer.pubkey(), merchant_from: m_lo, merchant_to: m_hi, lane,
+        points_mint_from: mint_lo, points_mint_to: mint_hi,
+        customer_points_account_from: ata_lo, customer_points_account_to: ata_hi,
+        customer_stats_to: stats_hi, token_program: spl_token_2022::id(),
     }.to_account_metas(None);
     let data = crosspoint::instruction::SwapPoints { amount: 50 }.data();
     let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
@@ -119,31 +148,31 @@ fn swap_points_rejects_inactive_lane() {
 }
 
 #[test]
-fn swap_points_rejects_mismatched_customer_stats_b() {
+fn swap_points_rejects_mismatched_customer_stats_to() {
     // A customer must not be able to redirect this swap's swap_count credit onto a
-    // different customer's CustomerStats at merchant B.
+    // different customer's CustomerStats at the destination merchant.
     let (mut svm, program_id) = setup();
     let (auth_lo, m_lo, mint_lo, auth_hi, m_hi, mint_hi) = sorted_pair(&mut svm, program_id);
     let lane = lane_pda(program_id, m_lo, m_hi);
-    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000);
+    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000, 500_000);
     accept(&mut svm, program_id, &auth_hi, m_lo, m_hi, lane);
 
     let customer = new_funded_keypair(&mut svm);
     let other_customer = new_funded_keypair(&mut svm);
     let (stats_lo, ata_lo) = enroll(&mut svm, program_id, &customer, m_lo, mint_lo);
     let (_stats_hi, ata_hi) = enroll(&mut svm, program_id, &customer, m_hi, mint_hi);
-    // A second, unrelated customer also enrolls at merchant B, giving us a real
-    // (but wrong) customer_stats_b PDA to substitute in below.
+    // A second, unrelated customer also enrolls at the destination merchant, giving us
+    // a real (but wrong) customer_stats_to PDA to substitute in below.
     let (other_stats_hi, _other_ata_hi) = enroll(&mut svm, program_id, &other_customer, m_hi, mint_hi);
     purchase(&mut svm, program_id, &auth_lo, customer.pubkey(), m_lo, mint_lo, stats_lo, ata_lo, 100);
 
     let accounts = crosspoint::accounts::SwapPoints {
-        customer: customer.pubkey(), merchant_a: m_lo, merchant_b: m_hi, lane,
-        points_mint_a: mint_lo, points_mint_b: mint_hi,
-        customer_points_account_a: ata_lo, customer_points_account_b: ata_hi,
-        customer_stats_b: other_stats_hi, token_program: spl_token_2022::id(),
+        customer: customer.pubkey(), merchant_from: m_lo, merchant_to: m_hi, lane,
+        points_mint_from: mint_lo, points_mint_to: mint_hi,
+        customer_points_account_from: ata_lo, customer_points_account_to: ata_hi,
+        customer_stats_to: other_stats_hi, token_program: spl_token_2022::id(),
     }.to_account_metas(None);
     let data = crosspoint::instruction::SwapPoints { amount: 50 }.data();
     let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
-    assert!(svm.send_transaction(tx).is_err(), "swap_points must reject a customer_stats_b that doesn't belong to the declared customer");
+    assert!(svm.send_transaction(tx).is_err(), "swap_points must reject a customer_stats_to that doesn't belong to the declared customer");
 }
