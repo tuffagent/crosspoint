@@ -32,6 +32,10 @@ pub mod crosspoint {
         instructions::accept_lane::handler(ctx)
     }
 
+    pub fn close_lane(ctx: Context<CloseLane>) -> Result<()> {
+        instructions::close_lane::handler(ctx)
+    }
+
     pub fn record_purchase(ctx: Context<RecordPurchase>, amount: u64) -> Result<()> {
         instructions::record_purchase::handler(ctx, amount)
     }
