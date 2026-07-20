@@ -1,9 +1,8 @@
 use anchor_client::{Client, Cluster};
-use anchor_lang::{InstructionData, ToAccountMetas};
 use anyhow::Result;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, instruction::Instruction, pubkey::Pubkey,
-    signature::{Keypair, Signer}, system_program, transaction::Transaction,
+    commitment_config::CommitmentConfig, pubkey::Pubkey,
+    signature::{Keypair, Signer}, system_program,
 };
 use std::rc::Rc;
 
