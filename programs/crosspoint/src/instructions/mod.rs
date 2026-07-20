@@ -8,6 +8,8 @@ pub mod propose_lane;
 pub use propose_lane::*;
 pub mod record_purchase;
 pub use record_purchase::*;
+pub mod redeem_points;
+pub use redeem_points::*;
 pub mod register_merchant;
 pub use register_merchant::*;
 pub mod swap_points;
