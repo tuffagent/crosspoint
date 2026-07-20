@@ -1,6 +1,6 @@
 mod common;
 
-// (imports mirror register_merchant.rs's test — Instruction, Transaction, etc.)
+// (imports mirror register_merchant.rs's test: Instruction, Transaction, etc.)
 use anchor_lang::{InstructionData, ToAccountMetas};
 use common::{new_funded_keypair, setup};
 use solana_sdk::{

@@ -15,7 +15,7 @@ pub struct CreateExtendedMintParams<'a, 'info> {
     pub mint: AccountInfo<'info>,
     pub payer: AccountInfo<'info>,
     pub mint_authority: Pubkey,
-    // Seeds that let the program invoke_signed as `mint_authority` for the TokenMetadata CPI
+    // Seeds that let the program invoke_signed as mint_authority for the TokenMetadata CPI
     // (e.g. the Merchant PDA's own seeds). Empty for a non-PDA authority.
     pub mint_authority_seeds: &'a [&'a [u8]],
     pub mint_authority_account: AccountInfo<'info>,
@@ -28,10 +28,10 @@ pub struct CreateExtendedMintParams<'a, 'info> {
 }
 
 // Creates a Token-2022 mint with MetadataPointer + on-chain TokenMetadata, optionally also
-// NonTransferable, at the fixed CrossPoint decimals. `mint` must be a fresh Keypair-derived
-// account that has already signed the transaction (checked by Anchor's `Signer<'info>` on the
-// caller's Accounts struct) — this function does the create_account + extension CPIs manually,
-// since Anchor's `init` constraint can't add extensions before InitializeMint2.
+// NonTransferable, at the fixed CrossPoint decimals. mint must be a fresh Keypair-derived
+// account that has already signed the transaction (checked by Anchor's Signer<'info> on the
+// caller's Accounts struct); this function does the create_account + extension CPIs manually,
+// since Anchor's init constraint can't add extensions before InitializeMint2.
 pub fn create_extended_mint(params: CreateExtendedMintParams) -> Result<()> {
     let CreateExtendedMintParams {
         mint,
@@ -93,7 +93,7 @@ pub fn create_extended_mint(params: CreateExtendedMintParams) -> Result<()> {
         ))?;
     }
 
-    // 3. InitializeMint2 — no signer required, just writes decimals/authority into the account.
+    // 3. InitializeMint2: no signer required, just writes decimals/authority into the account.
     invoke(
         &spl_token_2022::instruction::initialize_mint2(
             token_program.key,
@@ -136,8 +136,8 @@ pub fn create_extended_mint(params: CreateExtendedMintParams) -> Result<()> {
             mint_authority: mint_authority_account.clone(),
         },
     );
-    // Bound to a local so the reference `with_signer` stores outlives this statement
-    // (a `&[mint_authority_seeds]` temporary would otherwise drop before `metadata_ctx` is used).
+    // Bound to a local so the reference with_signer stores outlives this statement
+    // (an inline &[mint_authority_seeds] temporary would otherwise drop before metadata_ctx is used).
     let signer_seeds_array = [mint_authority_seeds];
     let metadata_ctx = if mint_authority_seeds.is_empty() {
         metadata_ctx

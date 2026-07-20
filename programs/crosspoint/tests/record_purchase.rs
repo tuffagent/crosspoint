@@ -44,6 +44,22 @@ fn enroll(svm: &mut litesvm::LiteSVM, program_id: Pubkey, customer: &Keypair, me
     (stats_pda, customer_ata)
 }
 
+fn token_balance(svm: &litesvm::LiteSVM, ata: Pubkey) -> u64 {
+    use spl_token_2022::extension::StateWithExtensions;
+    use spl_token_2022::state::Account as TokenAccountState;
+    let account = svm.get_account(&ata).expect("token account must exist");
+    StateWithExtensions::<TokenAccountState>::unpack(&account.data)
+        .expect("must unpack as a Token-2022 account")
+        .base
+        .amount
+}
+
+fn customer_stats(svm: &litesvm::LiteSVM, stats: Pubkey) -> crosspoint::state::CustomerStats {
+    use anchor_lang::AccountDeserialize;
+    let account = svm.get_account(&stats).expect("stats account must exist");
+    crosspoint::state::CustomerStats::try_deserialize(&mut account.data.as_slice()).expect("must deserialize as CustomerStats")
+}
+
 #[test]
 fn record_purchase_mints_points_and_updates_stats() {
     let (mut svm, program_id) = setup();
@@ -63,12 +79,16 @@ fn record_purchase_mints_points_and_updates_stats() {
     );
     let result = svm.send_transaction(tx);
     assert!(result.is_ok(), "record_purchase failed: {:?}", result.err());
+    // is_ok() alone wouldn't catch a handler that mints the wrong amount or updates the
+    // wrong stats field, so assert the actual post-purchase state.
+    assert_eq!(token_balance(&svm, customer_ata), 50, "50 points must actually be minted");
+    assert_eq!(customer_stats(&svm, stats_pda).lifetime_earned, 50, "lifetime_earned must be incremented by the purchase amount");
 }
 
 #[test]
 fn record_purchase_rejects_mismatched_customer_stats() {
     // A merchant must not be able to credit one customer's purchase onto a different
-    // customer's stats/ATA — the `customer` field must genuinely bind both accounts.
+    // customer's stats/ATA, the customer field must genuinely bind both accounts.
     let (mut svm, program_id) = setup();
     let authority = new_funded_keypair(&mut svm);
     let real_customer = new_funded_keypair(&mut svm);
@@ -77,7 +97,7 @@ fn record_purchase_rejects_mismatched_customer_stats() {
     let (_real_stats, _real_ata) = enroll(&mut svm, program_id, &real_customer, merchant_pda, points_mint);
     let (other_stats, other_ata) = enroll(&mut svm, program_id, &other_customer, merchant_pda, points_mint);
 
-    // Claim this purchase is for `real_customer`, but supply `other_customer`'s stats/ATA.
+    // Claim this purchase is for real_customer, but supply other_customer's stats/ATA.
     let accounts = crosspoint::accounts::RecordPurchase {
         authority: authority.pubkey(), merchant: merchant_pda, customer: real_customer.pubkey(), points_mint,
         customer_stats: other_stats, customer_points_account: other_ata,

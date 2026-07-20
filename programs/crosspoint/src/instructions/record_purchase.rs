@@ -18,7 +18,7 @@ pub struct RecordPurchase<'info> {
     )]
     pub merchant: Account<'info, Merchant>,
 
-    /// CHECK: identifies which customer this purchase credits — never a signer here (the
+    /// CHECK: identifies which customer this purchase credits, never a signer here (the
     /// merchant calls this alone), but the constraints below bind customer_stats and
     /// customer_points_account to this exact pubkey so neither can be swapped for someone else's.
     pub customer: UncheckedAccount<'info>,

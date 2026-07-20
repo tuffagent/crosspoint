@@ -28,4 +28,6 @@ pub enum CrossPointError {
     MathOverflow,
     #[msg("The provided customer stats account does not belong to this customer and merchant")]
     InvalidCustomerStats,
+    #[msg("This swap amount converts to zero points at the current rate")]
+    SwapAmountTooSmall,
 }

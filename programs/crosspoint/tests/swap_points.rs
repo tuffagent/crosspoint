@@ -140,6 +140,31 @@ fn swap_points_works_in_reverse_direction_at_its_own_rate() {
 }
 
 #[test]
+fn swap_points_rejects_amount_that_converts_to_zero() {
+    let (mut svm, program_id) = setup();
+    let (auth_lo, m_lo, mint_lo, auth_hi, m_hi, mint_hi) = sorted_pair(&mut svm, program_id);
+    let lane = lane_pda(program_id, m_lo, m_hi);
+    // A rate this low rounds any single-digit amount down to 0 converted points.
+    propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 1, 500_000);
+    accept(&mut svm, program_id, &auth_hi, m_lo, m_hi, lane);
+
+    let customer = new_funded_keypair(&mut svm);
+    let (stats_lo, ata_lo) = enroll(&mut svm, program_id, &customer, m_lo, mint_lo);
+    let (stats_hi, ata_hi) = enroll(&mut svm, program_id, &customer, m_hi, mint_hi);
+    purchase(&mut svm, program_id, &auth_lo, customer.pubkey(), m_lo, mint_lo, stats_lo, ata_lo, 100);
+
+    let accounts = crosspoint::accounts::SwapPoints {
+        customer: customer.pubkey(), merchant_from: m_lo, merchant_to: m_hi, lane,
+        points_mint_from: mint_lo, points_mint_to: mint_hi,
+        customer_points_account_from: ata_lo, customer_points_account_to: ata_hi,
+        customer_stats_to: stats_hi, token_program: spl_token_2022::id(),
+    }.to_account_metas(None);
+    let data = crosspoint::instruction::SwapPoints { amount: 1 }.data();
+    let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
+    assert!(svm.send_transaction(tx).is_err(), "swap_points must reject an amount that converts to zero points");
+}
+
+#[test]
 fn swap_points_rejects_inactive_lane() {
     let (mut svm, program_id) = setup();
     let (auth_lo, m_lo, mint_lo, _auth_hi, m_hi, mint_hi) = sorted_pair(&mut svm, program_id);

@@ -68,6 +68,9 @@ pub fn handler(ctx: Context<SwapPoints>, amount: u64) -> Result<()> {
         lane.rate_b_to_a
     };
     let converted = convert_amount(amount, rate)?;
+    // A zero (or rounded-to-zero) converted amount would still let a customer bump
+    // swap_count and claim the Cross-Merchant Trader badge without moving any real value.
+    require!(converted > 0, CrossPointError::SwapAmountTooSmall);
 
     token_2022::burn(
         CpiContext::new(

@@ -30,7 +30,7 @@ pub fn handler(ctx: Context<RegisterMerchant>, name: String, symbol: String, uri
     let merchant_bump = ctx.bumps.merchant;
     let authority_key = ctx.accounts.authority.key();
     // The Merchant PDA is this mint's authority, so it must sign the TokenMetadataInitialize
-    // CPI itself (that instruction requires mint_authority as a signer) — invoke_signed with
+    // CPI itself (that instruction requires mint_authority as a signer), invoke_signed with
     // its own seeds, exactly as record_purchase/swap_points later sign mint_to with this PDA.
     let merchant_seeds: &[&[u8]] = &[MERCHANT_SEED, authority_key.as_ref(), &[merchant_bump]];
 
