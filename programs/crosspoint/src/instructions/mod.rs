@@ -1,5 +1,7 @@
 pub mod accept_lane;
 pub use accept_lane::*;
+pub mod claim_achievement;
+pub use claim_achievement::*;
 pub mod close_lane;
 pub use close_lane::*;
 pub mod enroll_customer;

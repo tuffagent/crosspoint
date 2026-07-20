@@ -47,4 +47,8 @@ pub mod crosspoint {
     pub fn swap_points(ctx: Context<SwapPoints>, amount: u64) -> Result<()> {
         instructions::swap_points::handler(ctx, amount)
     }
+
+    pub fn claim_achievement(ctx: Context<ClaimAchievement>, badge_id: u8) -> Result<()> {
+        instructions::claim_achievement::handler(ctx, badge_id)
+    }
 }
