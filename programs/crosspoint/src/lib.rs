@@ -28,6 +28,10 @@ pub mod crosspoint {
         instructions::propose_lane::handler(ctx, rate_a_to_b, rate_b_to_a)
     }
 
+    pub fn accept_lane(ctx: Context<AcceptLane>) -> Result<()> {
+        instructions::accept_lane::handler(ctx)
+    }
+
     pub fn record_purchase(ctx: Context<RecordPurchase>, amount: u64) -> Result<()> {
         instructions::record_purchase::handler(ctx, amount)
     }
