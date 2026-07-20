@@ -66,10 +66,19 @@ fn accept_lane_rejects_double_accept() {
     };
     assert!(svm.send_transaction(tx1).is_ok());
 
+    // Force a fresh blockhash so tx2 isn't byte-identical to tx1 (same accounts, same
+    // signer, no varying args) — otherwise LiteSVM rejects it as AlreadyProcessed before
+    // the program even runs, and this test would pass without the LaneAlreadyActive
+    // guard ever firing.
+    svm.expire_blockhash();
+
     let tx2 = {
         let accounts = crosspoint::accounts::AcceptLane { authority: auth_hi.pubkey(), merchant_a: m_lo, merchant_b: m_hi, lane }.to_account_metas(None);
         let data = crosspoint::instruction::AcceptLane {}.data();
         Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&auth_hi.pubkey()), &[&auth_hi], svm.latest_blockhash())
     };
-    assert!(svm.send_transaction(tx2).is_err(), "second accept must fail");
+    let result = svm.send_transaction(tx2);
+    assert!(result.is_err(), "second accept must fail");
+    let err = result.unwrap_err().err.to_string();
+    assert!(err.contains("0x1773"), "expected LaneAlreadyActive (0x1773), got: {err}");
 }
