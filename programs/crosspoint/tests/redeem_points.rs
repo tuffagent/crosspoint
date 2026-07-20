@@ -34,6 +34,22 @@ fn purchase(svm: &mut litesvm::LiteSVM, program_id: Pubkey, authority: &Keypair,
     svm.send_transaction(tx).expect("record_purchase must succeed");
 }
 
+fn token_balance(svm: &litesvm::LiteSVM, ata: Pubkey) -> u64 {
+    use spl_token_2022::extension::StateWithExtensions;
+    use spl_token_2022::state::Account as TokenAccountState;
+    let account = svm.get_account(&ata).expect("token account must exist");
+    StateWithExtensions::<TokenAccountState>::unpack(&account.data)
+        .expect("must unpack as a Token-2022 account")
+        .base
+        .amount
+}
+
+fn customer_stats(svm: &litesvm::LiteSVM, stats: Pubkey) -> crosspoint::state::CustomerStats {
+    use anchor_lang::AccountDeserialize;
+    let account = svm.get_account(&stats).expect("stats account must exist");
+    crosspoint::state::CustomerStats::try_deserialize(&mut account.data.as_slice()).expect("must deserialize as CustomerStats")
+}
+
 #[test]
 fn redeem_points_burns_and_updates_stats() {
     let (mut svm, program_id) = setup();
@@ -50,6 +66,10 @@ fn redeem_points_burns_and_updates_stats() {
     let data = crosspoint::instruction::RedeemPoints { amount: 40 }.data();
     let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
     assert!(svm.send_transaction(tx).is_ok());
+    // 100 purchased, 40 redeemed: the ATA balance and lifetime_redeemed must both reflect
+    // the burn, not just that the transaction succeeded.
+    assert_eq!(token_balance(&svm, ata), 60, "40 points must actually be burned");
+    assert_eq!(customer_stats(&svm, stats).lifetime_redeemed, 40, "lifetime_redeemed must be incremented by the redeemed amount");
 }
 
 #[test]
