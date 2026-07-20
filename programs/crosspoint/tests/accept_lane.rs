@@ -67,7 +67,7 @@ fn accept_lane_rejects_double_accept() {
     assert!(svm.send_transaction(tx1).is_ok());
 
     // Force a fresh blockhash so tx2 isn't byte-identical to tx1 (same accounts, same
-    // signer, no varying args) — otherwise LiteSVM rejects it as AlreadyProcessed before
+    // signer, no varying args); otherwise LiteSVM rejects it as AlreadyProcessed before
     // the program even runs, and this test would pass without the LaneAlreadyActive
     // guard ever firing.
     svm.expire_blockhash();
