@@ -69,6 +69,16 @@ fn purchase(svm: &mut litesvm::LiteSVM, program_id: Pubkey, authority: &Keypair,
     svm.send_transaction(tx).expect("record_purchase must succeed");
 }
 
+fn token_balance(svm: &litesvm::LiteSVM, ata: Pubkey) -> u64 {
+    use spl_token_2022::extension::StateWithExtensions;
+    use spl_token_2022::state::Account as TokenAccountState;
+    let account = svm.get_account(&ata).expect("token account must exist");
+    StateWithExtensions::<TokenAccountState>::unpack(&account.data)
+        .expect("must unpack as a Token-2022 account")
+        .base
+        .amount
+}
+
 #[test]
 fn swap_points_burns_from_and_mints_to_at_rate() {
     let (mut svm, program_id) = setup();
@@ -92,6 +102,8 @@ fn swap_points_burns_from_and_mints_to_at_rate() {
     let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
     assert!(svm.send_transaction(tx).is_ok());
     // 50 lo-points at rate 2_000_000 (2x) => 100 hi-points minted.
+    assert_eq!(token_balance(&svm, ata_lo), 50, "50 lo-points must be burned");
+    assert_eq!(token_balance(&svm, ata_hi), 100, "100 hi-points must be minted at the 2x rate");
 }
 
 #[test]
@@ -120,7 +132,11 @@ fn swap_points_works_in_reverse_direction_at_its_own_rate() {
     let data = crosspoint::instruction::SwapPoints { amount: 40 }.data();
     let tx = Transaction::new_signed_with_payer(&[Instruction { program_id, accounts, data }], Some(&customer.pubkey()), &[&customer], svm.latest_blockhash());
     assert!(svm.send_transaction(tx).is_ok(), "swap_points must work in the hi -> lo direction too");
-    // 40 hi-points at rate 250_000 (0.25x) => 10 lo-points minted.
+    // 40 hi-points at rate 250_000 (0.25x) => 10 lo-points minted. Asserting the actual
+    // balance (not just is_ok()) proves rate_b_to_a was used, not rate_a_to_b (which
+    // would have minted 80).
+    assert_eq!(token_balance(&svm, ata_hi), 60, "40 hi-points must be burned");
+    assert_eq!(token_balance(&svm, ata_lo), 10, "exactly 10 lo-points must be minted at the 0.25x reverse rate");
 }
 
 #[test]
