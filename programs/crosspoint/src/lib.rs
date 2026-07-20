@@ -39,4 +39,8 @@ pub mod crosspoint {
     pub fn record_purchase(ctx: Context<RecordPurchase>, amount: u64) -> Result<()> {
         instructions::record_purchase::handler(ctx, amount)
     }
+
+    pub fn swap_points(ctx: Context<SwapPoints>, amount: u64) -> Result<()> {
+        instructions::swap_points::handler(ctx, amount)
+    }
 }

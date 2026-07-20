@@ -10,3 +10,5 @@ pub mod record_purchase;
 pub use record_purchase::*;
 pub mod register_merchant;
 pub use register_merchant::*;
+pub mod swap_points;
+pub use swap_points::*;
