@@ -2,7 +2,8 @@ use anchor_client::{Client, Cluster};
 use anyhow::Result;
 use solana_sdk::{
     commitment_config::CommitmentConfig, pubkey::Pubkey,
-    signature::{Keypair, Signer}, system_program,
+    signature::{Keypair, Signer}, system_instruction, system_program,
+    transaction::Transaction,
 };
 use std::rc::Rc;
 
@@ -17,12 +18,14 @@ pub fn run_demo(cluster: Cluster, payer: Rc<Keypair>) -> Result<()> {
     let mint_a = Keypair::new();
     let mint_b = Keypair::new();
 
+    // Fund the throwaway keypairs from the caller's own wallet rather than the Devnet
+    // faucet: airdrops are rate-limited per IP and fail unpredictably under load, while
+    // the configured wallet is expected to already hold Devnet SOL.
     for kp in [&merchant_a_authority, &merchant_b_authority, &customer] {
-        // confirm_transaction_with_spinner paces its own polling, unlike a bare
-        // confirm_transaction loop, which would hammer a public Devnet RPC endpoint.
+        let ix = system_instruction::transfer(&payer.pubkey(), &kp.pubkey(), 500_000_000);
         let blockhash = rpc.get_latest_blockhash()?;
-        let sig = rpc.request_airdrop(&kp.pubkey(), 2_000_000_000)?;
-        rpc.confirm_transaction_with_spinner(&sig, &blockhash, CommitmentConfig::confirmed())?;
+        let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer.as_ref()], blockhash);
+        rpc.send_and_confirm_transaction(&tx)?;
     }
 
     println!("Registering merchant A...");
