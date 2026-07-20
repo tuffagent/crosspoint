@@ -59,7 +59,7 @@ fn close_lane_then_reopen_with_new_rate() {
     // Expire blockhash to prevent AlreadyProcessed dedupe on subsequent propose/accept cycle.
     svm.expire_blockhash();
 
-    // Renegotiate at double the old rate — must succeed now the lane is inactive.
+    // Renegotiate at double the old rate, must succeed now the lane is inactive.
     propose(&mut svm, program_id, &auth_lo, m_lo, m_hi, lane, 2_000_000);
     accept(&mut svm, program_id, &auth_hi, m_lo, m_hi, lane);
 }
