@@ -28,13 +28,8 @@ pub struct ClaimAchievement<'info> {
     #[account(mut)]
     pub badge_mint: Signer<'info>,
 
-    // Not an Anchor `init` + `associated_token::mint` account: Anchor validates/creates
-    // every account in this struct (try_accounts) before the handler body runs, but
-    // badge_mint doesn't exist yet at that point, create_extended_mint only builds it
-    // inside the handler below. So this ATA is created manually, in program order, after
-    // the mint. The associated-token programme itself still derives and checks the ATA
-    // address against customer/badge_mint/token_program, so a mismatched account is
-    // rejected exactly as it would be under an `init` constraint.
+    // Not an Anchor init + associated_token::mint account: try_accounts runs before the
+    // handler, but badge_mint only becomes a real mint inside the handler below.
     /// CHECK: created manually via associated_token::create in the handler, once badge_mint exists.
     #[account(mut)]
     pub customer_badge_account: UncheckedAccount<'info>,
